@@ -158,7 +158,7 @@ function plate(name, x, y, sub) { // 元件铭牌
 // 断路器 QF：三相四线（3P+N），和实物一样从左到右 L1、L2、L3、N，中间拨杆联动
 const QF_POLES = ['L1', 'L2', 'L3', 'N'];
 function partQF(x, y, on, hi, pos) {
-  const p = pos === undefined ? (on ? 1 : 0) : pos; // 拨杆位置 0～1（练习页做弹簧动画用；视频直接按开关状态）
+  const hp = pos === undefined ? (on ? 1 : 0) : pos; // 拨杆位置 0～1（练习页做弹簧动画用；视频直接按开关状态）
   const w = 60 * QF_POLES.length;
   shadowBox(x, y, w, 150, 10, lin(x, y, x + w, y, [[0, '#f8fafc'], [0.5, '#e2e8f0'], [1, '#f1f5f9']]), hi ? C.trace : '#94a3b8');
   QF_POLES.forEach((p, i) => {
@@ -166,8 +166,8 @@ function partQF(x, y, on, hi, pos) {
     rrect(cx - 18, y + 2, 36, 22, 4, '#334155'); rrect(cx - 18, y + 126, 36, 22, 4, '#334155');
     screw(cx, y + 12); screw(cx, y + 138);
     rrect(cx - 12, y + 44, 24, 62, 5, '#1e293b');
-    rrect(cx - 9, y + 76 - 28 * p, 18, 26, 4, on ? '#2563eb' : '#64748b');
-    if (i < QF_POLES.length - 1) poly([[cx + 12, y + 89 - 28 * p], [cx + 48, y + 89 - 28 * p]], on ? '#2563eb' : '#64748b', 5);
+    rrect(cx - 9, y + 76 - 28 * hp, 18, 26, 4, on ? '#2563eb' : '#64748b');
+    if (i < QF_POLES.length - 1) poly([[cx + 12, y + 89 - 28 * hp], [cx + 48, y + 89 - 28 * hp]], on ? '#2563eb' : '#64748b', 5);
     text(p, cx, y + 116, 13, p === 'N' ? '#2563eb' : '#1f2937', 'center', 'bold'); // 印在白色外壳上，固定深色
   });
   rrect(x + 2, y + 28, w - 4, 12, 3, '#1d4ed8'); text('3P+N  C16', x + w - 40, y + 34, 10, '#fff', 'center', 'bold');
@@ -823,9 +823,24 @@ function cablePts(A, E, sagA, sagE) {
 const backOut = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
 const wireColorKey = from => PS.color === 'auto' ? (REF_NET[from] || '1') : PS.color;
 // 弹簧：值 x 追目标，带一点回弹（空开拨杆、按钮按压用）
+// 每帧拆成不超过 1/240 秒的小步来算（半隐式欧拉），帧率低（切换标签页、卡顿）时也不会越算越大；万一算坏了就直接复位
 function spring(key, target, dt, k = 320, d = 20) {
   const o = PS.spr[key] || (PS.spr[key] = { x: target, v: 0 });
-  o.v += (k * (target - o.x) - d * o.v) * dt; o.x += o.v * dt; return o.x;
+  const n = Math.max(1, Math.ceil(dt * 240)), h = dt / n;
+  for (let i = 0; i < n; i++) { o.v += (k * (target - o.x) - d * o.v) * h; o.x += o.v * h; }
+  if (!isFinite(o.x) || !isFinite(o.v) || Math.abs(o.x - target) > 3) { o.x = target; o.v = 0; }
+  return o.x;
+}
+// 接线是否全部正确（不弹提示、不改界面），按接线变化缓存：正确时原理图自动同步显示电流
+let okSig = null, okVal = false;
+function wiringOK() {
+  const sig = sigOf(); if (sig === okSig) return okVal; okSig = sig;
+  const parent = {}; const f = x => parent[x] === undefined || parent[x] === x ? (parent[x] = x) : (parent[x] = f(parent[x]));
+  PS.wires.forEach(w => { parent[f(w.a)] = f(w.b); });
+  const nets = [...new Set(Object.values(REF_NET))];
+  const joined = nets.every(n => new Set(Object.keys(REF_NET).filter(k => REF_NET[k] === n).map(f)).size === 1);
+  const groups = {}; PS.wires.forEach(w => [w.a, w.b].forEach(k => (groups[f(k)] = groups[f(k)] || new Set()).add(REF_NET[k] || '×')));
+  return (okVal = joined && Object.values(groups).every(g => g.size === 1));
 }
 
 // ---------- 电路：学生接的线 + 元件内部通断 ----------
@@ -1041,8 +1056,9 @@ function schematic(t, h) {
   for (const k in EDGE_COL) delete EDGE_COL[k];
   const colOf = {}; PS.wires.forEach(w => (colOf[f(w.a)] = w.net)); // 这个点上学生最后接的那根线的颜色
   BW.forEach(x => { if (f(x.a) === f(x.b)) x.sch.forEach(id => { EDGE_T[id] = 0; EDGE_COL[id] = netColor(colOf[f(x.a)] || x.net); }); });
-  // 接线全部正确时，原理图同步显示电流；否则只显示触点状态
-  const live = PS.checked && PS.checked.ok;
+  // 接线全部正确时（不用先点“检查”），原理图同步显示电流；否则只显示触点状态，并注明原因
+  const live = wiringOK();
+  if (!live && PS.sw.QF) text('接线还没全对，原理图暂不显示电流（点“检查”看哪里不对）', 405, 636, 15, C.gold, 'center', 'bold');
   drawSchematic(t, { ...PS.sw, QF: live ? PS.sw.QF : 0, km1: PS.km1, km2: PS.km2, w: PS.w }, {});
   const glow = (ids, col, w = 11) => { g.save(); g.translate(SCH.x, SCH.y); g.scale(SCH.s, SCH.s); g.globalAlpha = 0.7 + 0.3 * Math.sin(t * 6); ids.forEach(id => glowPoly(SEID[id].pts, col, w)); g.restore(); };
   if (h) glow(h.sch, C.trace);
@@ -1177,7 +1193,7 @@ cv.addEventListener('pointerdown', e => {
   for (const k in BTN) if (near(p, [BTN[k][0], 198], e.pointerType === 'mouse' ? 44 : 56)) { PS.sw[k] = 1; holding = k; fx('ripple', { x: BTN[k][0], y: 198, col: BTN[k][1] }); return; }
   if (p[0] >= 840 && p[0] <= 1080 && p[1] >= 175 && p[1] <= 275) {
     PS.sw.QF = PS.sw.QF ? 0 : 1; fx('ripple', { x: p[0], y: p[1], col: PS.sw.QF ? C.ok : C.dim });
-    if (PS.sw.QF) say(PS.checked && PS.checked.ok ? '空开已合闸，按 SB2 正转、SB1 停止、SB3 反转' : '空开已合闸（还没检查接线，现象可能不对）', C.ok, 4); else say('空开已断开');
+    if (PS.sw.QF) say(wiringOK() ? '空开已合闸，按 SB2 正转、SB1 停止、SB3 反转（原理图同步发光）' : '空开已合闸（接线还没全对，现象可能不对，可点“检查”）', wiringOK() ? C.ok : C.gold, 4); else say('空开已断开');
     return;
   }
   if (near(p, [930, 864], 34)) { PS.sw.FR = 1; fx('ripple', { x: 930, y: 864, col: C.bad }); say('模拟过载：FR 常闭触点 95-96 断开', C.bad, 4); return; }
