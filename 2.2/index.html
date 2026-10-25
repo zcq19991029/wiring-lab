@@ -1244,13 +1244,19 @@ requestAnimationFrame(frame);
   .tb-b:disabled { opacity: .38; filter: saturate(.2); cursor: not-allowed; }
   .tb-b.on { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; box-shadow: 0 8px 20px -8px var(--acc); }
   /* 果冻开关 */
-  .sw { position: relative; width: 38px; height: 22px; border-radius: 11px; background: var(--off); transition: background .35s; }
-  .sw i { position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 8px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3);
-    transition: left .35s cubic-bezier(.34,1.56,.64,1); }
-  .tb-b.hint-on .sw { background: var(--ok); }
-  .tb-b.hint-on .sw i { left: 19px; }
+  /* 提示开关：按苹果 HIG 的“切换”样式——上面是文字，下面是开关；关闭灰色底，打开圆点右滑、底色变绿 #34C759；按住时圆点拉长，松开弹回 */
+  .tb-b.hint { gap: 6px; }
+  .tb-b.hint .ic { display: flex; }
+  .sw { display: block; position: relative; width: 46px; height: 28px; border-radius: 14px; background: var(--off); transition: background .25s ease; }
+  .sw i { position: absolute; left: 2px; top: 2px; width: 24px; height: 24px; border-radius: 12px; background: #fff;
+    box-shadow: 0 3px 8px rgba(0,0,0,.18), 0 1px 1px rgba(0,0,0,.16); transition: left .35s cubic-bezier(.34,1.56,.64,1), width .2s ease; }
+  .tb-b.hint-on .sw { background: #34C759; }
+  .tb-b.hint-on .sw i { left: 20px; }
+  .tb-b.hint:active .sw i { width: 30px; }
+  .tb-b.hint.hint-on:active .sw i { left: 14px; }
   .sw i.jelly { animation: jelly .35s cubic-bezier(.34,1.56,.64,1); }
-  @keyframes jelly { 0% { width: 16px; } 40% { width: 27px; } 70% { width: 14px; } 100% { width: 16px; } }
+  @keyframes jelly { 0% { width: 24px; } 40% { width: 32px; } 70% { width: 22px; } 100% { width: 24px; } }
+  .tb-b.hint.on, .tb-b.hint-on { background: transparent; box-shadow: none; color: var(--ink); }
   /* 提交三连变：缩成圆 → 转圈 → 对勾 / 叉 → 复原 */
   .tb-b.morph { border-radius: 28px; transform: scale(.9); }
   .tb-b .spin { display: none; width: 24px; height: 24px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .7s linear infinite; }
@@ -1334,6 +1340,7 @@ requestAnimationFrame(frame);
   const B = {};
   const btn = (k, icon, label, tipText) => { const b = el('button', 'tb-b', `<span class="ic">${icon}</span><span class="spin"></span><span class="lb">${label}</span>`); b.type = 'button'; b.setAttribute('aria-label', tipText || label); b.dataset.tip = tipText || label; B[k] = b; return b; };
   btn('hint', '<span class="sw"><i></i></span>', '提示', '提示：下一根该接的线会发光');
+  B.hint.classList.add('hint'); B.hint.prepend(B.hint.querySelector('.lb')); // 文字在上、开关在下
   btn('undo', I.undo, '撤销', '撤销上一根线');
   btn('del', I.del, '删除', '删除选中的那根线（先在板上点一下线）');
   btn('clear', I.clear, '清空', '长按 1.5 秒清空全部导线');
@@ -1461,7 +1468,7 @@ requestAnimationFrame(frame);
       lastTheme = themeName + C.ctrl; const r = document.documentElement.style, dark = THEMES[themeName].dark;
       const V = { '--tb-bg': TH.cardTop, '--tb-bg2': TH.cardBot, '--edge': TH.edge, '--ink': C.ink, '--dim': C.dim, '--acc': TH.acc, '--acc2': TH.acc2, '--hov': TH.btnHov,
         '--press': dark ? 'rgba(255,255,255,.14)' : 'rgba(15,23,42,.12)', '--shadow': dark ? 'rgba(0,0,0,.7)' : 'rgba(15,23,42,.28)', '--ok': C.ok, '--bad': C.bad,
-        '--off': dark ? 'rgba(255,255,255,.18)' : 'rgba(15,23,42,.2)', '--tip': dark ? 'rgba(10,14,28,.95)' : 'rgba(15,23,42,.9)' };
+        '--off': dark ? 'rgba(120,120,128,.36)' : '#e9e9eb', '--tip': dark ? 'rgba(10,14,28,.95)' : 'rgba(15,23,42,.9)' };
       for (const k in V) r.setProperty(k, V[k]);
       document.body.style.background = TH.bg;
     }
