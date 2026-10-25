@@ -1302,6 +1302,8 @@ requestAnimationFrame(frame);
   .rot { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 50; padding: 8px 14px; border-radius: 12px; background: rgba(15,23,42,.9); color: #fff;
     font: 600 14px "Microsoft YaHei", sans-serif; display: none; }
   @media (orientation: portrait) { .rot { display: block; } }
+  /* 小屏（窄的平板、小窗口）：工具栏紧凑一点，按钮仍不小于 44 像素 */
+  @media (max-width: 1000px) { .tb { gap: 2px; padding: 4px; } .tb-b { width: 46px; height: 46px; border-radius: 13px; font-size: 10px; } .tb-b svg { width: 21px; height: 21px; } .tb-grip { width: 18px; } .tb.v .tb-grip { height: 18px; } }
   @media (prefers-reduced-motion: reduce) { .tb, .tb-orb, .tb-b, .tb-pop, .sw i, .chip { transition: none !important; animation: none !important; } }
   `;
   document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }));
