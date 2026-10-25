@@ -1001,7 +1001,8 @@ function board(t) {
   const h = PS.hint && nextHint();
   if (h) [h.a, h.b].forEach(k => ring(TP[k], C.trace, t));
   if (PS.checked && PS.checked.miss.size) PS.checked.miss.forEach(k => ring(TP[k], C.gold, t));
-  if (PS.sel) {
+  if (PS.sel && !PS.hint) { halo(TP[PS.sel], TH.acc, t); boardIO(PS.sel, '', true); } // 提示关闭：只标出选中的端子，不提示能接到哪里
+  else if (PS.sel) {
     // 选中的端子：同一个点上哪些端子可以接（绿圈），哪些已接满两根（红）、哪些已经接通（灰），并标出入/出
     halo(TP[PS.sel], C.ok, t);
     candidates(PS.sel).forEach(({ k, st }) => {
@@ -1062,7 +1063,7 @@ function schematic(t, h) {
   drawSchematic(t, { ...PS.sw, QF: live ? PS.sw.QF : 0, km1: PS.km1, km2: PS.km2, w: PS.w }, {});
   const glow = (ids, col, w = 11) => { g.save(); g.translate(SCH.x, SCH.y); g.scale(SCH.s, SCH.s); g.globalAlpha = 0.7 + 0.3 * Math.sin(t * 6); ids.forEach(id => glowPoly(SEID[id].pts, col, w)); g.restore(); };
   if (h) glow(h.sch, C.trace);
-  if (PS.sel && REF_NET[PS.sel]) {
+  if (PS.hint && PS.sel && REF_NET[PS.sel]) { // 提示关闭时原理图不标所选的点
     glow([...NET_SCH[REF_NET[PS.sel]]], netColor(REF_NET[PS.sel]), 15); // 发光用这个点的相色（U 黄、V 绿、W 红、N 蓝、控制线为控制线颜色）
     // 原理图上同样标出：所选端子、它的另一端、同一个点上的其他入口/出口
     const show = [[PS.sel, true]].concat(candidates(PS.sel).map(c => [c.k, false]));
@@ -1092,6 +1093,7 @@ function msgBar(t, h) {
   { const p = 0.5 + 0.5 * Math.sin(t * 3); g.save(); g.shadowColor = TH.acc; g.shadowBlur = 16; dot(56, 1020, 5 + 2 * p, TH.acc); g.restore(); }
   let s, col = C.ink;
   if (PS.msg && t < PS.msg.until) { s = PS.msg.text; col = PS.msg.color; }
+  else if (PS.sel && !PS.hint) s = countAt(PS.sel) >= 2 ? `${ioText(PS.sel) || termName(PS.sel)} 已经接满两根线` : `已选 ${ioText(PS.sel) || termName(PS.sel)}，再点另一个端子连线（提示已关闭）`;
   else if (PS.sel) {
     const net = REF_NET[PS.sel], ok = candidates(PS.sel).filter(c => c.st === 'ok').map(c => ioText(c.k));
     s = !net ? `${termName(PS.sel)}：这个端子在本电路里不用接线`
